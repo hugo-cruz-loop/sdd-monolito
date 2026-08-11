@@ -29,6 +29,7 @@ Coordinate the creation of a professional architecture/software specification fo
 | Security, authn/authz, data protection, Zero Trust | `security-spec-subagent` |
 | Runtime, VPS/AWS fit, resources, config, observability | `runtime-ops-subagent` |
 | React/Vite/Tailwind frontend slices | `frontend-spec-subagent` |
+| Generated/modified code quality gate for SOLID and architecture boundaries | `code-quality-review-subagent` |
 
 ## Workflow
 
@@ -43,9 +44,10 @@ Coordinate the creation of a professional architecture/software specification fo
    - deployment assumptions: VPS first, AWS only when justified
 4. Launch subagents in parallel where independent.
 5. Require each subagent to return Markdown using its output contract.
-6. Merge fragments into the final specification template.
-7. Save final spec locally.
-8. Save the decision summary to Engram.
+6. If code is generated or modified, run `code-quality-review-subagent` before accepting the work.
+7. Merge fragments into the final specification template.
+8. Save final spec locally.
+9. Save the decision summary to Engram.
 
 ## Final Output Path
 
@@ -66,3 +68,5 @@ Use `framework/templates/service-specification.md` as the canonical output struc
 - Stack choice explains why the selected language/framework fits the service nature.
 - Security covers authentication, authorization, secrets, data protection, and auditability.
 - Observability covers logs, metrics, traces, health checks, and dashboards.
+- Generated or modified production code passes the SOLID gate: SRP, OCP, LSP, ISP, and DIP, or documents accepted tradeoffs.
+- Domain/application code does not depend on transport, database, framework, or vendor SDK details.

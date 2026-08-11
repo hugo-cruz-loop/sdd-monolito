@@ -34,5 +34,6 @@ docs/
 - El orquestador coordina y sintetiza; no hace trabajo profundo.
 - Los subagentes producen fragmentos Markdown verificables.
 - Los skills encapsulan tareas repetitivas y estándares.
+- Si el flujo genera código, `solid-code-design-guard` actúa como quality gate para SRP, OCP, LSP, ISP y DIP.
 - Engram conserva contexto previo, decisiones y descubrimientos.
 - La documentación se enfoca en sistemas por capas REST back/front, DDD, API-First, Secure-by-Design, Zero Trust, SRE y BDD.

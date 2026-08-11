@@ -26,6 +26,9 @@ Document React/Vite/TypeScript/Tailwind routes, components, API clients, UI stat
 ### stack-decision-advisor
 Select stack by workload, maintainability, deployment, and risk. Prefer boring tech that satisfies the requirement.
 
+### solid-code-design-guard
+Validate generated or modified code against SOLID: SRP, OCP, LSP, ISP, and DIP. Treat violations as quality-gate failures unless explicitly justified.
+
 ## User Skills Trigger Table
 | Skill | Trigger |
 |---|---|
@@ -37,3 +40,4 @@ Select stack by workload, maintainability, deployment, and risk. Prefer boring t
 | runtime-observability-spec | runtime, VPS, AWS, observability, runbook |
 | frontend-layer-spec | React, Vite, TypeScript, Tailwind, frontend |
 | stack-decision-advisor | stack, language, framework, AWS decision |
+| solid-code-design-guard | SOLID, code generation, code review, clean architecture |

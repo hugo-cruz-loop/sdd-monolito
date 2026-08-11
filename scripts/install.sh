@@ -52,6 +52,7 @@ install_codex() {
 Use `.atl/agents/orchestrator.md` as the architecture documentation orchestrator.
 Use `.atl/templates/service-specification.md` as the canonical final specification template.
 Resolve compact rules from `.atl/templates/skill-registry.md` and inject them into subagent prompts as `## Project Standards (auto-resolved)`.
+When code is generated or modified, apply the `solid-code-design-guard` skill as a quality gate for SRP, OCP, LSP, ISP, and DIP.
 
 Do not add AI attribution to commits. Keep generated documentation in `docs/architecture/`.
 EOF
@@ -67,6 +68,7 @@ install_claude() {
 
 Use `.claude/agents/architecture-documentation-orchestrator.md` for documentation orchestration.
 Use project-local skills under `.claude/skills/` only. Keep final specs in `docs/architecture/requirements/<change-name>/specification.md`.
+When code is generated or modified, apply the local `solid-code-design-guard` skill as a quality gate for SRP, OCP, LSP, ISP, and DIP.
 EOF
 }
 
@@ -79,6 +81,7 @@ install_antigravity() {
 
 For Antigravity, use project-local `.agent/agents/orchestrator.md` and `.agent/skills/`.
 Keep final specifications in `docs/architecture/requirements/<change-name>/specification.md`.
+When code is generated or modified, apply the local `solid-code-design-guard` skill as a quality gate for SRP, OCP, LSP, ISP, and DIP.
 EOF
 }
 
