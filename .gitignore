@@ -1,0 +1,9 @@
+# Salida generada por scripts/install.sh. La única fuente es framework/.
+# Se regeneran instalando; tenerlas commiteadas obligaba a editar el mismo
+# archivo lógico en varios árboles a la vez y confiar en que nadie se olvide.
+.agent/
+.atl/
+.claude/
+.codex/
+
+.DS_Store
