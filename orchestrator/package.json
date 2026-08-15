@@ -1,0 +1,29 @@
+{
+  "name": "harness-orchestrator",
+  "version": "0.1.0",
+  "description": "Project Flow Orchestrator: DAG, global state, resume and human gates for Harness CTHA.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "harness-flow": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
