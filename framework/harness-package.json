@@ -1,0 +1,22 @@
+{
+  "package_version": 1,
+  "name": "sdd-monolito",
+  "instructions": {
+    "default": "Architecture documentation framework (sdd-monolito).\n\n- Orchestrator: the `orchestrator` agent coordinates; it never writes specification content itself.\n- Skills: resolve them through the `orchestrator-templates` skill registry and inject the matching compact rules into each subagent prompt as `## Project Standards (auto-resolved)`.\n- Output: final specifications go to `docs/architecture/requirements/<change-name>/specification.md`.\n- Runbooks: `docs/architecture/runbooks/`.\n\nSubagents never read the registry themselves.",
+    "claude": "Architecture documentation framework (sdd-monolito).\n\n- Orchestrator: `.claude/agents/orchestrator.md` coordinates; it never writes specification content itself.\n- Subagents: `.claude/agents/subagents/`.\n- Skills: `.claude/skills/`. Resolve them through `orchestrator-templates` and inject the matching compact rules into each subagent prompt as `## Project Standards (auto-resolved)`.\n- Output: final specifications go to `docs/architecture/requirements/<change-name>/specification.md`.\n\nSubagents never read the registry themselves.",
+    "codex": "Architecture documentation framework (sdd-monolito).\n\n- Skills: `.codex/skills/`. Resolve them through `orchestrator-templates` and inject the matching compact rules into each subagent prompt as `## Project Standards (auto-resolved)`.\n- The orchestrator agent lives in the `orchestrator` skill's sibling agents directory when one is installed; otherwise drive the flow from the registry directly.\n- Output: final specifications go to `docs/architecture/requirements/<change-name>/specification.md`."
+  },
+  "runtimes": {
+    "claude": {
+      "agents": "agents",
+      "skills": "skills"
+    },
+    "codex": {
+      "skills": "skills"
+    },
+    "antigravity": {
+      "agents": "agents",
+      "skills": "skills"
+    }
+  }
+}

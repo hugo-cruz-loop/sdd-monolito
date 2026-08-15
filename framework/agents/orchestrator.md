@@ -55,7 +55,12 @@ docs/architecture/requirements/<change-name>/specification.md
 
 ## Final Specification Contract
 
-Use `framework/templates/service-specification.md` as the canonical output structure.
+Use the canonical template shipped by the `architecture-spec-writer` skill, at
+`assets/service-specification.md` inside that skill's directory.
+
+Resolve it through the installed skills directory of your runtime, never through
+a path in this repository: `framework/...` exists where the framework is
+developed, not where it is installed.
 
 ## Quality Gates
 
