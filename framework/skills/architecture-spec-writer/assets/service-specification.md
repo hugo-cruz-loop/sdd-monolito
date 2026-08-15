@@ -23,6 +23,63 @@
 |---|---|---|---|---|---|---|
 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 
+### API Contracts
+
+#### `{METHOD} {PATH}`
+
+**Purpose:** {what this endpoint does}
+
+**Path parameters**
+| Name | Type | Required | Description |
+|---|---|---:|---|
+
+**Query parameters**
+| Name | Type | Required | Default | Description |
+|---|---|---:|---|---|
+
+**Headers**
+| Name | Required | Description |
+|---|---:|---|
+| Authorization | yes | Bearer token |
+
+**Request body**
+```json
+{
+  "example": "value"
+}
+```
+
+| Field | Type | Required | Validation | Description |
+|---|---|---:|---|---|
+
+**Success responses**
+
+`200 OK`
+```json
+{
+  "data": {}
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---:|---|
+
+**Error responses**
+
+`400 Bad Request`
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request payload",
+    "details": []
+  }
+}
+```
+
+| Code | HTTP | When | Body |
+|---|---:|---|---|
+
 **Contratos:** `{link-to-openapi}`
 
 ## Eventos
@@ -101,6 +158,8 @@ Feature: {business capability}
 
 ## Verification Checklist
 - [ ] APIs have OpenAPI contract placeholder.
+- [ ] Every API has path/query/header params documented.
+- [ ] Every API has request/response JSON schema and examples.
 - [ ] Data ownership and DDL are explicit.
 - [ ] Authn/authz are explicit.
 - [ ] Observability is actionable.

@@ -1,93 +1,58 @@
 #!/usr/bin/env bash
+# Install this framework into a project, through harness-install.
+#
+# This script used to do the installing itself. It no longer does, and the
+# reason is not tidiness:
+#
+#   * It wrote CLAUDE.md and AGENTS.md with `cat >`, destroying whatever the
+#     project already had in them.
+#   * With tools=all it wrote AGENTS.md twice — codex first, antigravity
+#     second — so codex's instructions were silently lost every time.
+#   * It was interactive, so it could not run unattended.
+#   * A crash mid-install left a tree nobody could describe: no journal, no
+#     lockfile, nothing to roll back to.
+#
+# harness-install fixes all four by construction: fenced blocks instead of
+# overwrites, a plan that refuses colliding writes, flags instead of prompts,
+# and a journal that survives a power cut.
+#
+# What this script still owns is the part that is not installation: seeding the
+# docs/architecture tree the framework writes into.
+#
+# Usage:
+#   scripts/install.sh [target-dir] [extra harness-install flags...]
+#
+#   scripts/install.sh .
+#   scripts/install.sh . --runtime claude --dry-run
+#   scripts/install.sh /srv/app --runtime claude,codex --mode copy
+
 set -euo pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_DIR="$(pwd)"
+TARGET_DIR="${1:-$(pwd)}"
+if [ "$#" -gt 0 ]; then shift; fi
+TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
-ask_csv() {
-  local prompt="$1"
-  local default="$2"
-  local value
-  read -r -p "$prompt [$default]: " value
-  echo "${value:-$default}"
-}
+if ! command -v harness-install >/dev/null 2>&1; then
+  cat >&2 <<'MSG'
+harness-install is not on PATH.
 
-contains() {
-  case ",$1," in *",$2,"*) return 0;; *) return 1;; esac
-}
+  git clone git@github.com:hugo-cruz-loop/harness-install.git
+  cd harness-install && npm install && npm run build && npm link
 
-TOOLS="$(ask_csv 'Install for tools (codex,claude,antigravity,all)' 'all')"
-STACK="$(ask_csv 'Selected stack (go,python,rust,react,postgres,redis,mongodb,all)' 'all')"
+Refusing to fall back to the old copy-and-overwrite installer: it destroyed
+CLAUDE.md and AGENTS.md content, and a fallback nobody notices is worse than a
+missing dependency somebody fixes.
+MSG
+  exit 2
+fi
 
-mkdir -p "$TARGET_DIR/docs/architecture/requirements" "$TARGET_DIR/docs/architecture/runbooks"
-mkdir -p "$TARGET_DIR/.atl/agents/subagents" "$TARGET_DIR/.atl/templates"
-cp -R "$SOURCE_DIR/framework/agents/"* "$TARGET_DIR/.atl/agents/"
-cp -R "$SOURCE_DIR/framework/templates/"* "$TARGET_DIR/.atl/templates/"
+mkdir -p "$TARGET_DIR/docs/architecture/requirements" \
+         "$TARGET_DIR/docs/architecture/runbooks"
 
-install_skills_dir() {
-  local dest="$1"
-  mkdir -p "$dest"
-  for skill_dir in "$SOURCE_DIR/framework/skills"/*; do
-    local name
-    name="$(basename "$skill_dir")"
-    case "$name" in
-      postgres-ddl-proposal)
-        contains "$STACK" all || contains "$STACK" postgres || continue ;;
-      frontend-layer-spec)
-        contains "$STACK" all || contains "$STACK" react || contains "$STACK" typescript || continue ;;
-      *) ;;
-    esac
-    rm -rf "$dest/$name"
-    mkdir -p "$dest/$name"
-    cp -R "$skill_dir/"* "$dest/$name/"
-  done
-}
-
-install_codex() {
-  mkdir -p "$TARGET_DIR/.codex/skills"
-  install_skills_dir "$TARGET_DIR/.codex/skills"
-  cat > "$TARGET_DIR/AGENTS.md" <<'EOF'
-# Project Architecture Documentation Agent
-
-Use `.atl/agents/orchestrator.md` as the architecture documentation orchestrator.
-Use `.atl/templates/service-specification.md` as the canonical final specification template.
-Resolve compact rules from `.atl/templates/skill-registry.md` and inject them into subagent prompts as `## Project Standards (auto-resolved)`.
-
-Do not add AI attribution to commits. Keep generated documentation in `docs/architecture/`.
-EOF
-}
-
-install_claude() {
-  mkdir -p "$TARGET_DIR/.claude/agents" "$TARGET_DIR/.claude/skills"
-  install_skills_dir "$TARGET_DIR/.claude/skills"
-  cp "$SOURCE_DIR/framework/agents/orchestrator.md" "$TARGET_DIR/.claude/agents/architecture-documentation-orchestrator.md"
-  for f in "$SOURCE_DIR/framework/agents/subagents"/*.md; do cp "$f" "$TARGET_DIR/.claude/agents/$(basename "$f")"; done
-  cat > "$TARGET_DIR/CLAUDE.md" <<'EOF'
-# Project Architecture Documentation Agent
-
-Use `.claude/agents/architecture-documentation-orchestrator.md` for documentation orchestration.
-Use project-local skills under `.claude/skills/` only. Keep final specs in `docs/architecture/requirements/<change-name>/specification.md`.
-EOF
-}
-
-install_antigravity() {
-  mkdir -p "$TARGET_DIR/.agent/agents" "$TARGET_DIR/.agent/skills"
-  install_skills_dir "$TARGET_DIR/.agent/skills"
-  cp -R "$SOURCE_DIR/framework/agents/"* "$TARGET_DIR/.agent/agents/"
-  cat > "$TARGET_DIR/AGENTS.md" <<'EOF'
-# Project Architecture Documentation Agent
-
-For Antigravity, use project-local `.agent/agents/orchestrator.md` and `.agent/skills/`.
-Keep final specifications in `docs/architecture/requirements/<change-name>/specification.md`.
-EOF
-}
-
-if contains "$TOOLS" all || contains "$TOOLS" codex; then install_codex; fi
-if contains "$TOOLS" all || contains "$TOOLS" claude; then install_claude; fi
-if contains "$TOOLS" all || contains "$TOOLS" antigravity; then install_antigravity; fi
-
-cp "$SOURCE_DIR/framework/templates/service-specification.md" "$TARGET_DIR/docs/architecture/service-specification.template.md"
-[ -f "$TARGET_DIR/docs/architecture/runbooks/system-runbook.md" ] || cat > "$TARGET_DIR/docs/architecture/runbooks/system-runbook.md" <<'EOF'
+RUNBOOK="$TARGET_DIR/docs/architecture/runbooks/system-runbook.md"
+if [ ! -f "$RUNBOOK" ]; then
+  cat > "$RUNBOOK" <<'MSG'
 # System Runbook
 
 ## Despliegue
@@ -98,8 +63,11 @@ TBD
 
 ## Contacto
 TBD
-EOF
+MSG
+fi
 
-echo "Installed local architecture documentation framework in: $TARGET_DIR"
-echo "Tools: $TOOLS"
-echo "Stack: $STACK"
+exec harness-install install \
+  --source "file://${SOURCE_DIR}/framework" \
+  --target "$TARGET_DIR" \
+  --package sdd-monolito \
+  "$@"
