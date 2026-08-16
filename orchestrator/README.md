@@ -20,7 +20,32 @@ Primera rebanada.
 | `src/gates.ts` | Aprobación, contradicciones, breaking changes e invalidación en cascada |
 | `src/cli.ts` | Argv, salida y códigos de salida |
 
-Pendiente: los drafts de agentes Buzz.
+Los cinco pilotos de Fase 5 viven en `test/pilots.test.ts`. Pendiente: los drafts
+de agentes Buzz.
+
+## Los pilotos: qué prueban y qué no
+
+Manejan la máquina de estados real, el DAG real y los gates reales a través de
+la forma de cada escenario.
+
+**Prueban** que el orquestador se niega a avanzar sin las condiciones que el plan
+nombra: un stage bloqueado frena el flujo, un reintento exige un attempt nuevo,
+una contradicción abierta bloquea la promoción, a un modo solo se le ofrecen las
+ramas que puede tomar, y una aprobación que dejó de aplicar invalida lo que se
+construyó encima.
+
+**No prueban nada sobre el juicio de los especialistas.** Cada resultado es un
+fixture: ningún Requirements Steward leyó un documento, ningún parser miró DDL,
+ninguna suite pasó de rojo a verde. **Un piloto que pasa acá no dice que el
+sistema documente bien un servicio — dice que el orquestador no deja avanzar un
+flujo mientras falten las condiciones.**
+
+Los pilotos del plan necesitan agentes Buzz vivos y un proyecto real. Estos son
+la suite de regresión debajo de ellos, no un reemplazo.
+
+Hay un test que afirma ese límite en vez de dejarlo en un comentario: verifica
+que ningún attempt de los pilotos tiene outputs, porque todos salieron de este
+archivo.
 
 ## Uso
 
