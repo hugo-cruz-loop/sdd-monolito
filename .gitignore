@@ -7,3 +7,8 @@
 .codex/
 
 .DS_Store
+
+# Paquete del orquestador
+orchestrator/node_modules/
+orchestrator/dist/
+*.tsbuildinfo
