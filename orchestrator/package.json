@@ -8,7 +8,8 @@
     "harness-flow": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "contracts"
   ],
   "engines": {
     "node": ">=20"
