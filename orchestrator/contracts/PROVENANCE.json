@@ -1,0 +1,13 @@
+{
+  "provenance_version": 1,
+  "description": "Vendored copy of the DAG catalog owned by harness-ctha-docs. This repository is a consumer, never the author: a change here is drift, not a release.",
+  "owner_repository": "hugo-cruz-loop/harness-ctha-docs",
+  "owner_path": "contracts/",
+  "pinned_commit": "2245ed28623033e336a996a6ba693f1e9daf94f0",
+  "files": [
+    {
+      "path": "v1/catalog.json",
+      "sha256": "71755008e248f0a2e76d6b3e7591677b178db2d8f426003582c3eb7c09799b72"
+    }
+  ]
+}

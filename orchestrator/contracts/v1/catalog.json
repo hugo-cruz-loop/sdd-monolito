@@ -1,0 +1,403 @@
+{
+  "catalog_version": 1,
+  "description": "Stages, transitions, gates, gap kinds and exception kinds of the Harness CTHA DAG. The plan states these as Markdown tables; a table cannot answer whether a stage is a legal successor or whether a gate is required, so they live here as data.",
+  "owners": [
+    "Project Flow Orchestrator",
+    "Requirements Steward",
+    "Code Knowledge Steward",
+    "PostgreSQL Change Steward",
+    "Implementation Steward"
+  ],
+  "stage_states": [
+    { "id": "pending", "advances": false, "note": "Declared in the DAG, never dispatched." },
+    { "id": "dispatched", "advances": false, "note": "A FlowRequest was sent; no result yet." },
+    { "id": "complete", "advances": true, "note": "The only state that produces a transition." },
+    { "id": "partial", "advances": false, "note": "Produced output, but not enough to certify the stage." },
+    { "id": "blocked", "advances": false, "note": "A required gate failed or a precondition is missing." },
+    { "id": "needs_decision", "advances": false, "note": "Waiting on a human decision recorded in decisions_required." }
+  ],
+  "stages": [
+    {
+      "id": "readiness",
+      "owner": "Project Flow Orchestrator",
+      "purpose": "Prove the tooling, registry and state are usable before spending a specialist on anything."
+    },
+    {
+      "id": "code-knowledge-baseline",
+      "owner": "Code Knowledge Steward",
+      "purpose": "Produce a ContextPackage tied to a revision, with resolvable anchors."
+    },
+    {
+      "id": "requirements",
+      "owner": "Requirements Steward",
+      "purpose": "Turn confirmed documentation into an approved requirement package."
+    },
+    {
+      "id": "sdd-planning",
+      "owner": "Implementation Steward",
+      "purpose": "Derive proposal, spec, design and tasks from an approved requirement."
+    },
+    {
+      "id": "ddl",
+      "owner": "PostgreSQL Change Steward",
+      "purpose": "Produce a validated migration triad without applying anything."
+    },
+    {
+      "id": "implementation",
+      "owner": "Implementation Steward",
+      "purpose": "Implement the tasks under strict TDD and certify a candidate commit."
+    },
+    {
+      "id": "code-knowledge-refresh",
+      "owner": "Code Knowledge Steward",
+      "purpose": "Reconverge Graphify, Engram and documentation on the candidate commit."
+    },
+    {
+      "id": "ready-for-apply",
+      "owner": "Project Flow Orchestrator",
+      "purpose": "Hold delivered artifacts awaiting an external pipeline.",
+      "gateless_reason": "A holding state. It runs no command; the gates that justify it already passed in ddl and code-knowledge-refresh."
+    },
+    {
+      "id": "external-apply",
+      "owner": "PostgreSQL Change Steward",
+      "purpose": "Accept and authenticate the receipt of an application performed outside the harness."
+    },
+    {
+      "id": "post-apply-reconcile",
+      "owner": "PostgreSQL Change Steward",
+      "purpose": "Re-snapshot the catalog and confirm the deployed state matches what was delivered."
+    },
+    {
+      "id": "archive-delivery",
+      "owner": "Project Flow Orchestrator",
+      "purpose": "Close a change that was delivered but not deployed.",
+      "gateless_reason": "Archive records; it verifies nothing of its own. Its preconditions are the gates of the stage that fed it."
+    },
+    {
+      "id": "archive-post-apply",
+      "owner": "Project Flow Orchestrator",
+      "purpose": "Close a change whose deployment was verified by an ApplyReceipt.",
+      "gateless_reason": "Archive records; it verifies nothing of its own."
+    }
+  ],
+  "transitions": [
+    { "from": "readiness", "to": "code-knowledge-baseline", "condition": "Tooling, registry and state are valid." },
+    { "from": "code-knowledge-baseline", "to": "requirements", "condition": "ContextPackage is fresh." },
+    { "from": "requirements", "to": "sdd-planning", "condition": "Requirement package and Approval are complete." },
+    { "from": "sdd-planning", "to": "implementation", "condition": "Proposal, spec, design and tasks complete, no DB change." },
+    { "from": "sdd-planning", "to": "ddl", "condition": "Planning artifacts identify a schema change." },
+    { "from": "ddl", "to": "implementation", "condition": "Triad, ValidationReport and DeliveryManifest are valid." },
+    { "from": "implementation", "to": "code-knowledge-refresh", "condition": "Candidate commit clean, gates and fresh review PASS." },
+    { "from": "code-knowledge-refresh", "to": "ready-for-apply", "condition": "Convergence reached and an external apply is requested." },
+    { "from": "code-knowledge-refresh", "to": "archive-delivery", "condition": "Convergence reached and no external apply is requested." },
+    { "from": "ready-for-apply", "to": "external-apply", "condition": "An external pipeline applied the artifacts." },
+    { "from": "external-apply", "to": "post-apply-reconcile", "condition": "ApplyReceipt is valid and authenticated." },
+    { "from": "post-apply-reconcile", "to": "archive-post-apply", "condition": "Catalog, db-graph and code knowledge show no drift." }
+  ],
+  "gates": [
+    {
+      "id": "tooling-doctor",
+      "stage": "readiness",
+      "policy": "required",
+      "owner": "Project Flow Orchestrator",
+      "verifies": "Every installed launcher resolves to an existing target and matches the installed version (source -> dist -> launcher parity).",
+      "evidence": ["command", "exit_code", "tool_version"]
+    },
+    {
+      "id": "registry-check",
+      "stage": "readiness",
+      "policy": "required",
+      "owner": "Code Knowledge Steward",
+      "verifies": "Every registered unit, db project and skill claim holds against the filesystem.",
+      "evidence": ["command", "exit_code", "output_sha256"]
+    },
+    {
+      "id": "state-integrity",
+      "stage": "readiness",
+      "policy": "required",
+      "owner": "Project Flow Orchestrator",
+      "verifies": "state_revision and fencing token are current and no divergent history exists.",
+      "evidence": ["command", "exit_code"]
+    },
+    {
+      "id": "source-revision",
+      "stage": "code-knowledge-baseline",
+      "policy": "required",
+      "owner": "Code Knowledge Steward",
+      "verifies": "The corpus is under version control and the assessment is attributable to a commit and tree.",
+      "evidence": ["verified_commit", "verified_tree", "worktree_clean"]
+    },
+    {
+      "id": "graph-sufficiency",
+      "stage": "code-knowledge-baseline",
+      "policy": "required",
+      "owner": "Code Knowledge Steward",
+      "verifies": "The graph has nodes, a recorded generator version and a digest-bound build stamp — not merely a directory that exists.",
+      "evidence": ["command", "exit_code", "output_sha256"]
+    },
+    {
+      "id": "anchor-resolution",
+      "stage": "code-knowledge-baseline",
+      "policy": "required",
+      "owner": "Code Knowledge Steward",
+      "verifies": "Graph anchors resolve to files in this working tree, not a different one.",
+      "evidence": ["command", "exit_code", "verified_commit"]
+    },
+    {
+      "id": "document-inventory",
+      "stage": "requirements",
+      "policy": "required",
+      "owner": "Requirements Steward",
+      "verifies": "Every consumed document is inventoried with path, hash and provenance.",
+      "evidence": ["command", "exit_code", "output_sha256"]
+    },
+    {
+      "id": "protected-features",
+      "stage": "requirements",
+      "policy": "required",
+      "owner": "Requirements Steward",
+      "verifies": "The protected feature set and the preservation argument exist before any change is authorized.",
+      "evidence": ["output_ref", "output_sha256"]
+    },
+    {
+      "id": "contradictions-closed",
+      "stage": "requirements",
+      "policy": "required",
+      "owner": "Requirements Steward",
+      "verifies": "No contradiction between code and documentation is left open.",
+      "evidence": ["output_ref", "output_sha256"]
+    },
+    {
+      "id": "requirement-refs-consumed",
+      "stage": "sdd-planning",
+      "policy": "required",
+      "owner": "Implementation Steward",
+      "verifies": "Every req/* reference and digest named by Approval was consumed unchanged.",
+      "evidence": ["output_ref", "output_sha256"]
+    },
+    {
+      "id": "spec-scenarios",
+      "stage": "sdd-planning",
+      "policy": "required",
+      "owner": "Implementation Steward",
+      "verifies": "The spec carries executable scenarios, not restated intent.",
+      "evidence": ["command", "exit_code"]
+    },
+    {
+      "id": "review-forecast",
+      "stage": "sdd-planning",
+      "policy": "required",
+      "owner": "Implementation Steward",
+      "verifies": "Estimated review workload is computed against max_review_lines and a delivery strategy is resolved.",
+      "evidence": ["output_ref"]
+    },
+    {
+      "id": "ddl-parse",
+      "stage": "ddl",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "Desired-state DDL parses and unsupported statements are declared rather than skipped.",
+      "evidence": ["command", "exit_code", "tool_version"]
+    },
+    {
+      "id": "postgres-version",
+      "stage": "ddl",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "The plan targets the server version actually deployed.",
+      "evidence": ["command", "exit_code", "environment_ref"]
+    },
+    {
+      "id": "transaction-safety",
+      "stage": "ddl",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "Statements that cannot run inside a transaction are isolated and declared.",
+      "evidence": ["command", "exit_code"]
+    },
+    {
+      "id": "lock-analysis",
+      "stage": "ddl",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "Acquired lock levels fit the declared lock budget.",
+      "evidence": ["command", "exit_code", "output_sha256"]
+    },
+    {
+      "id": "table-rewrite",
+      "stage": "ddl",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "Full-table rewrites are identified and fit the downtime budget.",
+      "evidence": ["command", "exit_code", "output_sha256"]
+    },
+    {
+      "id": "rollback-reversibility",
+      "stage": "ddl",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "The down script restores the prior state, or the irreversibility is explicitly approved.",
+      "evidence": ["command", "exit_code", "output_ref"]
+    },
+    {
+      "id": "dry-run",
+      "stage": "ddl",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "Up and down execute against a snapshot of the deployed catalog.",
+      "evidence": ["command", "exit_code", "environment_ref", "output_sha256"]
+    },
+    {
+      "id": "drift-check",
+      "stage": "ddl",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "The deployed catalog and the desired state agree. Drift blocks; it is never reconciled silently.",
+      "evidence": ["command", "exit_code", "environment_ref", "output_sha256"]
+    },
+    {
+      "id": "worktree-clean",
+      "stage": "implementation",
+      "policy": "required",
+      "owner": "Implementation Steward",
+      "verifies": "The evidence describes the candidate commit and not uncommitted edits on top of it.",
+      "evidence": ["command", "exit_code", "verified_commit", "verified_tree"]
+    },
+    {
+      "id": "build",
+      "stage": "implementation",
+      "policy": "required",
+      "owner": "Implementation Steward",
+      "verifies": "The candidate commit builds from a clean tree.",
+      "evidence": ["command", "exit_code", "tool_version", "output_sha256"]
+    },
+    {
+      "id": "lint",
+      "stage": "implementation",
+      "policy": "required",
+      "owner": "Implementation Steward",
+      "verifies": "The project's own static checks pass on the candidate commit.",
+      "evidence": ["command", "exit_code", "tool_version"]
+    },
+    {
+      "id": "unit-tests",
+      "stage": "implementation",
+      "policy": "required",
+      "owner": "Implementation Steward",
+      "verifies": "The full suite passes on the candidate commit, including the regressions that protect protected_features.",
+      "evidence": ["command", "exit_code", "tool_version", "output_sha256"]
+    },
+    {
+      "id": "fresh-review",
+      "stage": "implementation",
+      "policy": "required",
+      "owner": "Implementation Steward",
+      "verifies": "An independent reviewer with fresh context judged the same commit and tree. Any later edit invalidates it.",
+      "evidence": ["command", "exit_code", "reviewer_identity", "reviewer_context_id", "verified_commit"]
+    },
+    {
+      "id": "graph-refresh",
+      "stage": "code-knowledge-refresh",
+      "policy": "required",
+      "owner": "Code Knowledge Steward",
+      "verifies": "Graphify and its stamp were rebuilt at the candidate commit.",
+      "evidence": ["command", "exit_code", "verified_commit", "output_sha256"]
+    },
+    {
+      "id": "doc-validators",
+      "stage": "code-knowledge-refresh",
+      "policy": "required",
+      "owner": "Code Knowledge Steward",
+      "verifies": "OpenAPI, AsyncAPI, Mermaid and Gherkin artifacts validate.",
+      "evidence": ["command", "exit_code", "output_sha256"]
+    },
+    {
+      "id": "critical-gaps-clear",
+      "stage": "code-knowledge-refresh",
+      "policy": "required",
+      "owner": "Code Knowledge Steward",
+      "verifies": "No blocking gap remains between code, graph, memory and documentation.",
+      "evidence": ["output_ref", "output_sha256"]
+    },
+    {
+      "id": "apply-receipt",
+      "stage": "external-apply",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "The receipt authenticates target, run, DeliveryManifest digest, applied up digest and post-snapshot.",
+      "evidence": ["output_ref", "output_sha256", "environment_ref"]
+    },
+    {
+      "id": "post-apply-drift",
+      "stage": "post-apply-reconcile",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "A fresh catalog snapshot shows no drift against the delivered desired state.",
+      "evidence": ["command", "exit_code", "environment_ref", "output_sha256"]
+    },
+    {
+      "id": "db-graph-reindex",
+      "stage": "post-apply-reconcile",
+      "policy": "required",
+      "owner": "PostgreSQL Change Steward",
+      "verifies": "db-graph was rebuilt from the post-apply catalog.",
+      "evidence": ["command", "exit_code", "output_sha256"]
+    }
+  ],
+  "gap_kinds": [
+    { "id": "graph-missing", "blocking_by_default": true, "detail": "No graph.json exists for the unit; a directory holding only a report is not a graph." },
+    { "id": "graph-unstamped", "blocking_by_default": true, "detail": "The graph has no digest-bound build stamp, so it cannot be tied to a generator version or a commit." },
+    { "id": "graph-stale", "blocking_by_default": true, "detail": "The stamp records a different commit than the current tree." },
+    { "id": "dangling-anchor", "blocking_by_default": false, "detail": "A source_file referenced by the graph no longer exists. Blocking once the unresolved share crosses the sufficiency threshold." },
+    { "id": "uncovered-source", "blocking_by_default": false, "detail": "A source file the graph never indexed, per graphify's own manifest." },
+    { "id": "coverage-unknown", "blocking_by_default": false, "detail": "No graphify manifest, so what the graph covered cannot be established." },
+    { "id": "indexed-file-missing", "blocking_by_default": false, "detail": "A file the graph manifest says it indexed no longer exists in the working tree." },
+    { "id": "source-untracked", "blocking_by_default": true, "detail": "The corpus is not under version control, so no claim about it can be re-verified later." },
+    { "id": "catalog-unavailable", "blocking_by_default": true, "detail": "No authorized PostgreSQL catalog snapshot; deployed truth is unknown." },
+    { "id": "catalog-drift", "blocking_by_default": true, "detail": "Deployed catalog and desired state disagree." },
+    { "id": "parser-unsupported", "blocking_by_default": false, "detail": "A DDL statement outside declared parser coverage. Blocking when it affects the target objects." },
+    { "id": "document-unreferenced", "blocking_by_default": false, "detail": "A document with no inventory entry, hash or provenance; it cannot authorize a change." },
+    { "id": "contradiction-open", "blocking_by_default": true, "detail": "Code and documentation disagree and no decision has been recorded." },
+    { "id": "approval-missing", "blocking_by_default": true, "detail": "No Approval binds the exact derived artifacts and digests." },
+    { "id": "protected-features-unknown", "blocking_by_default": true, "detail": "The protected feature set could not be established, so no preservation argument exists." },
+    { "id": "test-runner-missing", "blocking_by_default": true, "detail": "No runnable test command, so strict TDD cannot be observed and no gate can produce evidence." }
+  ],
+  "exceptions": [
+    {
+      "id": "size:exception",
+      "grants": "Allows a single PR to exceed constraints.max_review_lines instead of splitting into a chain.",
+      "granted_by": "human",
+      "recorded_in": "sdd/{change_id}/state",
+      "still_required": "Every implementation gate. The exception buys review budget, never a skipped gate."
+    },
+    {
+      "id": "gate:skip",
+      "grants": "Allows an optional gate to report skipped.",
+      "granted_by": "Implementation Steward",
+      "recorded_in": "the validation entry's skip_reason",
+      "still_required": "A skip_reason. A required gate can never take this exception."
+    },
+    {
+      "id": "strict-tdd:waived",
+      "grants": "Allows implementation without an observed RED before GREEN.",
+      "granted_by": "human",
+      "recorded_in": "sdd/{change_id}/state",
+      "still_required": "A recorded reason, normally test-runner-missing. Waiving it does not waive the test gate."
+    },
+    {
+      "id": "ddl:documented-partial",
+      "grants": "Allows a DDL diagnosis built on a non-transactional or partial catalog snapshot.",
+      "granted_by": "PostgreSQL Change Steward",
+      "recorded_in": "ddl/{db-project}/{change_id}/context",
+      "still_required": "The result can only reach partial. It never authorizes final SQL."
+    },
+    {
+      "id": "install:allow-unsigned",
+      "grants": "Allows installing a remote artifact with no verifiable signature or attestation.",
+      "granted_by": "human, in an interactive session only",
+      "recorded_in": "the install journal and .harness-lock.json",
+      "still_required": "Explicit textual confirmation. Forbidden under --non-interactive or with CI set."
+    }
+  ]
+}

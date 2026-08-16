@@ -16,9 +16,53 @@ Primera rebanada.
 | `src/contracts.ts` | Vocabulario de etapas y resultados, tomado del contrato congelado |
 | `src/state.ts` | El estado global, con CAS, fencing e historial append-only |
 | `src/store.ts` | Backend de archivos: lock, token monotónico y escritura durable |
+| `src/dag.ts` | Qué hacer después, leyendo el catálogo congelado |
 
-Pendiente: el driver del DAG, la selección de modos, los gates humanos y los
+Pendiente: los gates humanos para contradicciones y breaking changes, y los
 drafts de agentes Buzz.
+
+## Las transiciones no se declaran acá
+
+Viven en `contracts/v1/catalog.json`, propiedad de `harness-ctha-docs`, vendido
+con un pin de digest — el mismo arreglo que usa `harness-install`, por la misma
+razón: **una segunda copia de una regla sigue validando instancias, sigue
+pareciendo autoritativa, y discrepa en silencio con todos los demás.**
+
+Lo que este módulo agrega es lo que el catálogo deliberadamente no dice: qué
+etapa sigue **para un modo dado**. El catálogo describe el grafo; un modo
+describe un camino por él.
+
+## `nextAction` aconseja, no actúa
+
+Devuelve consejo porque cada quien decide distinto: la CLI lo imprime, un agente
+le pregunta a un humano, un test afirma sobre él. **Una función que decidiera y
+actuara a la vez no se podría inspeccionar antes de hacerlo.**
+
+| Consejo | Cuándo |
+|---|---|
+| `resume` | Hay una etapa corriendo |
+| `halt` | Una etapa quedó `blocked`, `partial` o `needs_decision` |
+| `halt` | El estado trae una etapa que este modo no corre |
+| `dispatch` | Hay un único sucesor en alcance |
+| `choose` | El catálogo se bifurca y la condición vive en los artefactos |
+| `done` | Se llegó a un terminal del modo |
+
+### El orden importa
+
+El chequeo de `halt` va **antes** que todo lo demás. Al principio lo puse
+después, y una etapa de entrada bloqueada caía a «todavía no completó nada» y se
+**re-despachaba**: el orquestador reintentando, por su cuenta, exactamente la
+etapa que un especialista acababa de rechazar.
+
+### Se pregunta, no se adivina
+
+Donde el catálogo se bifurca —`sdd-planning` va a `ddl` o a `implementation`— la
+condición que elige vive en los **artefactos**, no en el grafo. Adivinar acá
+elegiría un camino que nadie eligió.
+
+Pero si el modo deja una sola rama en alcance, no hay nada que preguntar:
+preguntar igual haría elegir entre una opción real y otra que ese modo no puede
+tomar.
 
 ## Tres rechazos, no uno
 
