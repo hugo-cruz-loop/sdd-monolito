@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-  LockHeld,
+  LockHeldError,
   open,
   readHolder,
   readState,
@@ -113,7 +113,7 @@ describe("the lock", () => {
           now,
           isAlive: () => true,
         })
-      ).toThrow(LockHeld);
+      ).toThrow(LockHeldError);
     } finally {
       first.release();
     }
@@ -150,7 +150,7 @@ describe("the lock", () => {
         now,
         isAlive: () => false,
       })
-    ).toThrow(LockHeld);
+    ).toThrow(LockHeldError);
   });
 
   it("releases even when the guarded work throws", () => {
@@ -163,20 +163,33 @@ describe("the lock", () => {
   });
 
   // If a stale reclaim handed the lock to somebody else, deleting it here would
-  // unlock their session.
-  it("does not remove a lock that now belongs to another token", () => {
+  // unlock their session. The comparison is on pid + hostname + acquired_at,
+  // not on the token: pids get reused, and a token nobody read is not identity.
+  it("does not remove a lock that now belongs to somebody else", () => {
     const mine = open(layout, CHANGE, seed(), { now });
     fs.writeFileSync(
       lockPath(layout, CHANGE),
       JSON.stringify({
         pid: 999,
-        hostname: "h",
-        acquired_at: now(),
-        fencing_token: 99,
+        hostname: "other-host",
+        acquired_at: "2026-08-13T11:00:00Z",
+        metadata: { fencing_token: 99 },
       })
     );
     mine.release();
-    expect(readHolder(lockPath(layout, CHANGE))?.fencing_token).toBe(99);
+    const held = readHolder(lockPath(layout, CHANGE));
+    expect(held?.pid).toBe(999);
+    expect(held?.metadata.fencing_token).toBe(99);
+  });
+
+  it("records its own token in the lock, in the shape harness-core writes", () => {
+    const s = open(layout, CHANGE, seed(), { now });
+    try {
+      const held = readHolder(lockPath(layout, CHANGE));
+      expect(held?.metadata).toEqual({ fencing_token: 1 });
+    } finally {
+      s.release();
+    }
   });
 });
 

@@ -68,15 +68,21 @@ el **orden** y que el resume lee del disco.
 page cache del kernel. Es la misma limitación declarada en `harness-install`, y
 por la misma razón se dice en vez de suponerse.
 
-## Deuda declarada
+## El piso viene de `harness-core`
 
-Las primitivas de escritura durable en `store.ts` son **la tercera copia** de la
-misma idea: `harness-code` y `harness-db` tienen una cada uno, y
-`harness-install` tiene la buena. El plan ya nombra un paquete compartido como
-arreglo.
+Las primitivas durables y el lock vienen de
+[`harness-core`](https://github.com/hugo-cruz-loop/harness-core), fijado a un
+tag.
 
-Esto repite la duplicación en vez de bloquear la Fase 4 — pero lo dice en voz
-alta, en vez de dejar que la tercera copia pase inadvertida.
+Este paquete iba a ser la **cuarta** copia de la misma idea. El plan la nombraba
+como deuda de Fase 3, y cada copia venía con un comentario declarando que era
+deliberada — lo que no las volvía menos copias: las volvía copias que nadie iba
+a arreglar, porque cada una tenía escrito que estaba bien.
+
+El lock comparte los hechos —quién lo tiene, dónde, desde cuándo— y este paquete
+le pasa el porqué: *«un segundo orquestador despacharía contra un estado que
+este está por cambiar, y ningún resultado describiría el flujo que realmente
+corrió»*.
 
 ## Desarrollo
 

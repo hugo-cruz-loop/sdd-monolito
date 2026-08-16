@@ -13,15 +13,22 @@
 // the journal is durable: a number that only exists in the process that issued
 // it cannot outlive the crash it was meant to survive.
 //
-// DEBT: the durable-write primitives below are a third copy of the same idea —
-// harness-code and harness-db each grew one, and harness-install has the good
-// version. The plan already names a shared package as the fix; this repeats the
-// duplication rather than blocking Phase 4 on it, and says so out loud instead
-// of letting the third copy pass unnoticed.
+// The durable-write and locking primitives come from `harness-core`. They used
+// to be a fourth private copy of the same idea; the shared package exists
+// because four copies that each declared themselves deliberate are still four
+// copies nobody was going to fix.
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+  ExclusiveLock,
+  LockHeldError,
+  fsyncDir,
+  readHolder as readLockHolder,
+  writeJsonDurable,
+  type LockHolder,
+} from "harness-core";
 import { StateRejected, type FlowState, type WriteContext } from "./state";
 
 export interface StoreLayout {
@@ -35,40 +42,6 @@ export function statePath(layout: StoreLayout, changeId: string): string {
 
 export function lockPath(layout: StoreLayout, changeId: string): string {
   return path.join(layout.root, `${changeId}.lock`);
-}
-
-function fsyncDir(dir: string): void {
-  let fd: number;
-  try {
-    fd = fs.openSync(dir, "r");
-  } catch {
-    return;
-  }
-  try {
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
-function writeJsonDurable(file: string, value: unknown): void {
-  const dir = path.dirname(file);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmp = path.join(dir, `.${path.basename(file)}.${process.pid}.tmp`);
-  const fd = fs.openSync(tmp, "w");
-  try {
-    fs.writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`);
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
-  try {
-    fs.renameSync(tmp, file);
-  } catch (e) {
-    fs.rmSync(tmp, { force: true });
-    throw e;
-  }
-  fsyncDir(dir);
 }
 
 export function readState(layout: StoreLayout, changeId: string): FlowState | null {
@@ -85,35 +58,19 @@ export function readState(layout: StoreLayout, changeId: string): FlowState | nu
   }
 }
 
-export interface LockHolder {
-  pid: number;
-  hostname: string;
-  acquired_at: string;
+/** What this orchestrator records about itself in the lock. */
+export interface FlowLockMetadata {
   fencing_token: number;
 }
 
-export class LockHeld extends Error {
-  constructor(readonly holder: LockHolder) {
-    super(
-      `state is locked by pid ${holder.pid} on ${holder.hostname} since ${holder.acquired_at} (token ${holder.fencing_token})`
-    );
-    this.name = "LockHeld";
-  }
-}
+export type FlowLockHolder = LockHolder<FlowLockMetadata>;
+
+export { LockHeldError };
 
 export interface AcquireOptions {
   self?: { pid: number; hostname: string };
   now?: () => string;
   isAlive?: (pid: number) => boolean;
-}
-
-function defaultIsAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (e) {
-    return (e as NodeJS.ErrnoException).code === "EPERM";
-  }
 }
 
 export interface Session {
@@ -139,44 +96,23 @@ export function open(
   seed: FlowState,
   options: AcquireOptions = {}
 ): Session {
-  const self = options.self ?? { pid: process.pid, hostname: os.hostname() };
-  const now = options.now ?? (() => new Date().toISOString());
-  const isAlive = options.isAlive ?? defaultIsAlive;
-  const lock = lockPath(layout, changeId);
-
+  const lockFile = lockPath(layout, changeId);
   fs.mkdirSync(layout.root, { recursive: true });
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const fd = fs.openSync(lock, "wx");
-      fs.closeSync(fd);
-      break;
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-      const existing = readHolder(lock);
-      // Only a lock left by a dead process on THIS host can be judged stale:
-      // "its pid is not running here" says nothing about there.
-      if (
-        existing === null ||
-        (existing.hostname === self.hostname && !isAlive(existing.pid))
-      ) {
-        fs.rmSync(lock, { force: true });
-        continue;
-      }
-      throw new LockHeld(existing);
-    }
-  }
+  // Read before locking only to learn the token to claim; the authoritative
+  // read happens under the lock, below.
+  const token = (readState(layout, changeId)?.fencing_token ?? seed.fencing_token) + 1;
+
+  const lock = ExclusiveLock.acquire<FlowLockMetadata>(lockFile, {
+    metadata: { fencing_token: token },
+    self: options.self,
+    now: options.now,
+    isAlive: options.isAlive,
+    reason:
+      "a second orchestrator would dispatch against a state this one is about to change, and neither result would describe the flow that actually ran",
+  });
 
   let state = readState(layout, changeId) ?? seed;
-  const token = state.fencing_token + 1;
-
-  const holder: LockHolder = {
-    pid: self.pid,
-    hostname: self.hostname,
-    acquired_at: now(),
-    fencing_token: token,
-  };
-  writeJsonDurable(lock, holder);
 
   // Persisted immediately: a token that only exists in this process cannot
   // outlive the crash it was meant to survive, and the next writer would reuse
@@ -185,7 +121,6 @@ export function open(
   writeJsonDurable(statePath(layout, changeId), state);
 
   let current = state;
-  let released = false;
 
   return {
     changeId,
@@ -196,7 +131,7 @@ export function open(
       return current;
     },
     commit(next: FlowState): FlowState {
-      if (released) {
+      if (lock.isReleased) {
         throw new StateRejected("fenced", "session already released");
       }
       writeJsonDurable(statePath(layout, changeId), next);
@@ -204,25 +139,13 @@ export function open(
       return next;
     },
     release(): void {
-      if (released) return;
-      const held = readHolder(lock);
-      // Only remove a lock that still describes us: if a stale reclaim handed
-      // it to somebody else, deleting it would unlock their session.
-      if (held !== null && held.fencing_token === token) {
-        fs.rmSync(lock, { force: true });
-        fsyncDir(path.dirname(lock));
-      }
-      released = true;
+      lock.release();
     },
   };
 }
 
-export function readHolder(lock: string): LockHolder | null {
-  try {
-    return JSON.parse(fs.readFileSync(lock, "utf8")) as LockHolder;
-  } catch {
-    return null;
-  }
+export function readHolder(lock: string): FlowLockHolder | null {
+  return readLockHolder<FlowLockMetadata>(lock);
 }
 
 /** Run `fn` under the lock, releasing it even when `fn` throws. */
