@@ -17,7 +17,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc --noEmit --strict --esModuleInterop --skipLibCheck --module CommonJS --moduleResolution Node --target ES2022 test/*.test.ts"
   },
   "dependencies": {
     "commander": "^12.1.0"

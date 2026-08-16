@@ -153,7 +153,11 @@ describe("what to do next", () => {
   });
 
   it("dispatches a different entry for a different mode", () => {
-    expect(nextAction(seed(), "ddl").stage).toBe("ddl");
+    // Narrowed rather than reached into: `Advice` is a union, and `choose` has
+    // no `stage`. Reaching in works at runtime and hides which shape came back.
+    const advice = nextAction(seed(), "ddl");
+    expect(advice.action).toBe("dispatch");
+    if (advice.action === "dispatch") expect(advice.stage).toBe("ddl");
   });
 
   it("resumes a stage left running rather than dispatching past it", () => {

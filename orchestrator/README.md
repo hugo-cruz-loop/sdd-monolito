@@ -18,8 +18,50 @@ Primera rebanada.
 | `src/store.ts` | Backend de archivos: lock, token monotónico y escritura durable |
 | `src/dag.ts` | Qué hacer después, leyendo el catálogo congelado |
 | `src/gates.ts` | Aprobación, contradicciones, breaking changes e invalidación en cascada |
+| `src/cli.ts` | Argv, salida y códigos de salida |
 
-Pendiente: la CLI y los drafts de agentes Buzz.
+Pendiente: los drafts de agentes Buzz.
+
+## Uso
+
+```bash
+harness-flow start    --change billing-service--add-idempotency --project payments --mode full
+harness-flow status   --change billing-service--add-idempotency --mode full
+harness-flow dispatch --change billing-service--add-idempotency --stage readiness
+harness-flow result   --change billing-service--add-idempotency --stage readiness \
+                      --attempt <uuid> --request <uuid> --status complete
+harness-flow gates    --change billing-service--add-idempotency --contradictions c.json
+harness-flow doctor   --change billing-service--add-idempotency
+```
+
+| Código | Significa |
+|---|---|
+| 0 | Hizo lo que se le pidió |
+| 1 | Se negó, encontró problemas, o el flujo espera una decisión |
+| 2 | El pedido estaba mal formado |
+
+### No hay comando `advance`
+
+Avanzar el flujo significa **despachar a un especialista y registrar qué
+contestó**. Colapsar eso en un solo verbo dejaría que una corrida reporte una
+transición que el trabajo de nadie produjo.
+
+### Esperar una rama sale 1, no 0
+
+Un flujo detenido en una bifurcación está sano, pero **no está «sin nada que
+hacer»**. Salir 0 dejaría que un script agende el paso siguiente y siga de
+largo, con la rama sin elegir.
+
+### El attempt id lo genera la CLI
+
+Un attempt id que un script puede elegir es uno que un script puede **repetir**,
+y todo el punto de la identidad es que un reintento se vea como una corrida
+distinta.
+
+### `gates` se niega si no chequeó nada
+
+Reportar «todos los gates pasan» después de no haber chequeado ninguno es
+exactamente el modo de falla del que trata este programa entero.
 
 ## Una aprobación autentica bytes, no nombres
 
