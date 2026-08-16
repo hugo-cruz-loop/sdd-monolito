@@ -17,9 +17,54 @@ Primera rebanada.
 | `src/state.ts` | El estado global, con CAS, fencing e historial append-only |
 | `src/store.ts` | Backend de archivos: lock, token monotónico y escritura durable |
 | `src/dag.ts` | Qué hacer después, leyendo el catálogo congelado |
+| `src/gates.ts` | Aprobación, contradicciones, breaking changes e invalidación en cascada |
 
-Pendiente: los gates humanos para contradicciones y breaking changes, y los
-drafts de agentes Buzz.
+Pendiente: la CLI y los drafts de agentes Buzz.
+
+## Una aprobación autentica bytes, no nombres
+
+*«Approval autentica el paquete derivado exacto, no solo sus fuentes.»*
+
+Una aprobación no es «esta persona miró el requisito». Es **«esta persona aceptó
+estos bytes»**. Así que la pregunta no es si existe una aprobación, sino si los
+artefactos que se presentan **ahora** son los que cubrió, hasta el digest.
+
+Se compara por `type + ref + digest`, los tres. Comparar solo refs dejaría pasar
+un artefacto editado bajo un nombre aprobado —el movimiento exacto que una
+aprobación existe para impedir— y comparar solo digests dejaría presentar un
+artefacto aprobado como si fuera otro.
+
+Y un paquete **al que le falta** algo tampoco pasa. No es un paquete más chico:
+es uno al que le falta una pieza, **y esa pieza puede ser la razón por la que
+dijeron que sí**.
+
+### La revocación corta antes
+
+Una aprobación revocada no es una aprobación más débil: es **una retirada**. Una
+vez retirada, si los digests siguen coincidiendo no es una pregunta que nadie
+necesite respondida.
+
+## El consentimiento no se transfiere
+
+Una decisión sobre un breaking change se liga al **digest del impacto**.
+
+Un impacto se puede re-analizar y crecer. Una decisión tomada sobre la versión
+chica, arrastrada hacia adelante, sería consentimiento sobre algo que nadie
+leyó.
+
+## Invalidación en cascada
+
+*«Cualquier diferencia o revocación invalida planning y todos sus
+descendientes.»*
+
+Una aprobación que deja de aplicar no bloquea solamente el paso siguiente:
+**todo lo que ya se construyó encima se construyó sobre algo que nadie aceptó.**
+
+Los descendientes se calculan **desde el catálogo**, no se listan — para que un
+cambio del grafo no deje una regla de invalidación describiendo la forma vieja.
+
+Y se **reportan**, no se aplican. Tirar trabajo terminado es una decisión, y
+quien llama tiene que poder ver la lista antes de que pase.
 
 ## Las transiciones no se declaran acá
 
